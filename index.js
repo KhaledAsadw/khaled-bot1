@@ -1,171 +1,114 @@
-import './config.js'
-import { fetchLatestBaileysVersion } from '@adiwajshing/baileys'
-import cfont from "cfonts";
-import { spawn } from 'child_process';
-import { createInterface } from "readline";
-import { promises as fsPromises } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { sizeFormatter } from 'human-readable';
+import { join, dirname } from 'path'
+import { createRequire } from 'module';
+import { fileURLToPath } from 'url'
+import { setupMaster, fork } from 'cluster'
+import { watchFile, unwatchFile } from 'fs'
+import cfonts from 'cfonts';
+import { createInterface } from 'readline'
+import yargs from 'yargs'
+import express from 'express'
+import chalk from 'chalk'
+import path from 'path'
+import os from 'os'
+import { promises as fsPromises } from 'fs'
 
-import axios from 'axios';
-import os from 'os';
-import path from 'path';
-import moment from 'moment-timezone'
-import fs from 'fs';
-import yargs from "yargs";
-import express from 'express';
-import chalk from 'chalk';
-
-let formatSize = sizeFormatter({
-	std: 'JEDEC',
-	decimalPlaces: '2',
-	keepTrailingZeroes: false,
-	render: (literal, symbol) => `${literal} ${symbol}B`
-})
-const { 
- say } = cfont
-const {
- tz } = moment
-const app = express();
-const port = process.env.PORT || 8082;
-const time = tz('Africa/casablanca').format('HH:mm:ss');
-const currentFilePath = new URL(import.meta.url).pathname;
+// https://stackoverflow.com/a/50052194
 const __dirname = dirname(fileURLToPath(import.meta.url))
-
-let bot_ku = 'SILANA BOT'
-say(bot_ku, {
-  font: "simpleBlock",
-  align: "center",
-  gradient: ["yellow", "cyan", "red"],
-  transitionGradient: 1,
-})
-say('by ' + info.nameown, {
-  font: "tiny",
-  align: "center",
-  colors: ["white"]
-})
-app.listen(port, () => {
-  console.log(chalk.green(`⚡ Port ${port} has opened`));
-});
-const folderPath = './tmp';
-    if (!fs.existsSync(folderPath)) {
-        fs.mkdirSync(folderPath);
-        console.log(chalk.green('Folder tmp created successfully.'));
-        }
-        
-let isRunning = false;
-
+const require = createRequire(__dirname) //Incorpora la capacidad de crear el método 'requerir'
+const { name, author } = require(join(__dirname, './package.json')) //https://www.stefanjudis.com/snippets/how-to-import-json-files-in-es-modules-node-js/
+const { say } = cfonts
 const rl = createInterface(process.stdin, process.stdout)
 
+//const app = express()
+//const port = process.env.PORT || 8080;
+
+say('Gata\nBot\nMD', {
+font: 'chrome',
+align: 'center',
+gradient: ['red', 'magenta']})
+say(`Por GataDios`, {
+font: 'console',
+align: 'center',
+gradient: ['red', 'magenta']})
+
+var isRunning = false
+
 async function start(file) {
-    if (isRunning) return;
-  isRunning = true;
+if (isRunning) return
+isRunning = true
+const currentFilePath = new URL(import.meta.url).pathname
+let args = [join(__dirname, file), ...process.argv.slice(2)]
+say([process.argv[0], ...args].join(' '), {
+font: 'console',
+align: 'center',
+gradient: ['red', 'magenta']
+})
+setupMaster({exec: args[0], args: args.slice(1),
+})
+let p = fork()
+p.on('message', data => {
+switch (data) {
+case 'reset':
+p.process.kill()
+isRunning = false
+start.apply(this, arguments)
+break
+case 'uptime':
+p.send(process.uptime())
+break
+}})
 
-  const args = [join(dirname(currentFilePath), file), ...process.argv.slice(2)];
-  const p = spawn(process.argv[0], args, {
-    stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
-  });
-    p.on("message", data => {
-    console.log(chalk.magenta("[ ✅ Accepted  ]", data))
-        switch (data) {
-            case "reset":
-                p.process.kill()
-                isRunning = false
-                start.apply(this, arguments)
-                break
-            case "uptime":
-                p.send(process.uptime())
-                break
-        }
-    })
-    p.on("exit", (_, code) => {
-        isRunning = false
-        console.error("[❗] Exit with code :", code)
-        if (code !== 0) return start(file)
-        watchFile(args[0], () => {
-            unwatchFile(args[0])
-            start(file)
-        })
-    })
-    
-    let opts = new Object(yargs(process.argv.slice(2)).exitProcess(false).parse())
-    if (!opts["test"])
-        if (!rl.listenerCount()) rl.on("line", line => {
-            p.emit("message", line.trim())
-        })
+p.on('exit', (_, code) => {
+isRunning = false
+console.error('⚠️ ERROR ⚠️ >> ', code)
+start('main.js'); //
 
+if (code === 0) return
+watchFile(args[0], () => {
+unwatchFile(args[0])
+start(file)
+})})
 
-const packageJsonPath = join(dirname(currentFilePath), './package.json');
-const pluginsFolder = join(dirname(currentFilePath), 'plugins');
-const totalFoldersAndFiles = await getTotalFoldersAndFiles(pluginsFolder);
-  fs.readdir(pluginsFolder, async (err, files) => {
-    if (err) {
-      console.error(chalk.red(`Folder Plugins Error: ${err}`));
-      return;
-    }
-
-    try {
-      console.log(chalk.bgGreen(chalk.white(`Library Baileys Versi ${(await fetchLatestBaileysVersion()).version} Telah Terinstall`)));
-    } catch (e) {
-      console.error(chalk.bgRed(chalk.white('Baileys Library Not Installed')));
-    }
-  })
-
-
-  try {
-    const packageJsonData = await fsPromises.readFile(packageJsonPath, 'utf-8');
-    const packageJsonObj = JSON.parse(packageJsonData);
-    // let fitur = Object.values(plugins).filter(v => v.help ).map(v => v.help).flat(1)
-    const { data } = await axios.get('https://api.ipify.org')
-    const ramInGB = os.totalmem() / (1024 * 1024 * 1024);
-    const freeRamInGB = os.freemem() / (1024 * 1024 * 1024);
-
-    console.log(`╭──⎔ Dashboard System ⎔
-┣ Name Bot: ${chalk.white(packageJsonObj.name)}
-┣ Version: ${chalk.white(packageJsonObj.version)}
-┣ Description: ${chalk.white(packageJsonObj.description)}
-┣ Os: ${chalk.white(os.type())}
-┣ Memory: ${chalk.white(freeRamInGB.toFixed(2) + ' / ' + ramInGB.toFixed(2))}
-┣ IP: ${chalk.red(data)}
-┣ Owner: ${chalk.white(global.info.nomerown)}
-╰──⎔⎔
-╭──⎔⎔ ${chalk.bgCyan(chalk.white('Bot Specifications'))} ⎔⎔
-┣ Feature: ${chalk.white(totalFoldersAndFiles.files)} Feature
-╰──⎔⎔ 
-
-⎔──⎔⎔ Creator: ${chalk.bold.cyan('NOUREDDINE OUAFY')} ⎔⎔──⎔`)
-    
-  } catch (err) {
-    console.error(chalk.red(`Can not read File package.json: ${err}`));
-  }
-
-  setInterval(() => {}, 1000);
+const ramInGB = os.totalmem() / (1024 * 1024 * 1024)
+const freeRamInGB = os.freemem() / (1024 * 1024 * 1024)
+const packageJsonPath = path.join(path.dirname(currentFilePath), './package.json')
+try {
+const packageJsonData = await fsPromises.readFile(packageJsonPath, 'utf-8')
+const packageJsonObj = JSON.parse(packageJsonData)
+const currentTime = new Date().toLocaleString()
+let lineM = '⋯ ⋯ ⋯ ⋯ ⋯ ⋯ ⋯ ⋯ ⋯ ⋯ ⋯ 》'
+console.log(chalk.yellow(`╭${lineM}
+┊${chalk.blueBright('╭┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅')}
+┊${chalk.blueBright('┊')}${chalk.yellow(`🖥️ ${os.type()}, ${os.release()} - ${os.arch()}`)}
+┊${chalk.blueBright('┊')}${chalk.yellow(`💾 Total RAM: ${ramInGB.toFixed(2)} GB`)}
+┊${chalk.blueBright('┊')}${chalk.yellow(`💽 Free RAM: ${freeRamInGB.toFixed(2)} GB`)}
+┊${chalk.blueBright('╰┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅')}
+┊${chalk.blueBright('╭┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅')}
+┊${chalk.blueBright('┊')} ${chalk.blue.bold(`🟢INFORMACIÓN :`)}
+┊${chalk.blueBright('┊')} ${chalk.blueBright('┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅')} 
+┊${chalk.blueBright('┊')}${chalk.cyan(`💚 Nombre: ${packageJsonObj.name}`)}
+┊${chalk.blueBright('┊')}${chalk.cyan(`𓃠 Versión: ${packageJsonObj.version}`)}
+┊${chalk.blueBright('┊')}${chalk.cyan(`💜 Descripción: ${packageJsonObj.description}`)}
+┊${chalk.blueBright('┊')}${chalk.cyan(`😺 Project Author: ${packageJsonObj.author.name} (@gata_dios)`)}
+┊${chalk.blueBright('┊')}${chalk.blueBright('┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅')} 
+┊${chalk.blueBright('┊')}${chalk.yellow(`💜 Colaboradores:`)}
+┊${chalk.blueBright('┊')}${chalk.yellow(`• elrebelde21 (Mario ofc)`)}
+┊${chalk.blueBright('┊')}${chalk.yellow(`• KatashiFukushima (Katashi)`)}
+┊${chalk.blueBright('╰┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅')} 
+┊${chalk.blueBright('╭┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅')}
+┊${chalk.blueBright('┊')}${chalk.cyan(`⏰ Hora Actual :`)}
+┊${chalk.blueBright('┊')}${chalk.cyan(`${currentTime}`)}
+┊${chalk.blueBright('╰┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅')} 
+╰${lineM}`));
+setInterval(() => {}, 1000)
+} catch (err) {
+console.error(chalk.red(`❌ No se pudo leer el archivo package.json: ${err}`))
 }
 
-function getTotalFoldersAndFiles(folderPath) {
-  return new Promise((resolve, reject) => {
-    fs.readdir(folderPath, (err, files) => {
-      if (err) {
-        reject(err);
-      } else {
-        let folders = 0;
-        let filesCount = 0;
-        files.forEach((file) => {
-          const filePath = join(folderPath, file);
-          if (fs.statSync(filePath).isDirectory()) {
-            folders++;
-          } else {
-            filesCount++;
-          }
-        });
-        resolve({ folders, files: filesCount });
-      }
-    });
-  });
-}
+let opts = new Object(yargs(process.argv.slice(2)).exitProcess(false).parse())
+if (!opts['test'])
+if (!rl.listenerCount()) rl.on('line', line => {
+p.emit('message', line.trim())
+})}
 
-/**
-Memulai sistem
-**/
-start('main.js');
+start('main.js')
